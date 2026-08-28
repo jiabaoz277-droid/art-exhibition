@@ -119,3 +119,24 @@ def test_export_zip_contains_csv_images_resumes(client):
     assert "export.csv" in names
     assert any(n.startswith("images/") for n in names)
     assert any(n.startswith("resumes/") for n in names)
+
+
+def test_export_xlsx_embeds_images_and_selects_columns(client):
+    import openpyxl
+    import io as _io
+
+    c = _create_campaign(client)
+    works = [{"title": "w1", "dimensions": "", "medium": "油画", "school": "A校", "price": ""}]
+    r = _submit(client, c["link_token"], works,
+                resume=("r.pdf", b"%PDF-1.4 demo", "application/pdf"),
+                image=("w.png", None, "image/png"))
+    assert r.status_code == 200, r.text
+
+    e = client.get(f"/api/v1/admin/campaigns/{c['id']}/export.xlsx?columns=name,title,image")
+    assert e.status_code == 200
+    assert "spreadsheetml" in e.headers["content-type"]
+    wb = openpyxl.load_workbook(_io.BytesIO(e.content))
+    ws = wb.active
+    headers = [cell.value for cell in ws[1]]
+    assert headers == ["姓名", "作品名", "照片"]
+    assert len(ws._images) >= 1  # 图片内嵌，不是文件名

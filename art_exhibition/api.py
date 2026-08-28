@@ -15,7 +15,7 @@ from db import get_db
 from models import Campaign
 from schemas import CampaignCreate, CampaignOut, LoginRequest, SQLQuery, QueryRequest
 from services import (create_campaign, submit_submission, build_overview, export_rows,
-                      export_zip, make_brief, answer_question)
+                      export_zip, export_xlsx, make_brief, answer_question)
 from tools import run_sql as run_sql_tool, list_works as list_works_tool
 
 router = APIRouter()
@@ -130,6 +130,17 @@ def admin_export_zip(cid: int, medium: Optional[str] = None, school: Optional[st
     data = _run(export_zip, cid, medium=medium, school=school)
     return Response(content=data, media_type="application/zip",
                     headers={"Content-Disposition": "attachment; filename=export.zip"})
+
+
+@router.get("/admin/campaigns/{cid}/export.xlsx")
+def admin_export_xlsx(cid: int, columns: Optional[str] = None, medium: Optional[str] = None,
+                      school: Optional[str] = None, has_resume: Optional[str] = None,
+                      _: bool = Depends(require_admin)):
+    cols = [c.strip() for c in (columns or "").split(",") if c.strip()]
+    data = _run(export_xlsx, cid, columns=cols, medium=medium, school=school,
+                has_resume=has_resume)
+    return Response(content=data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=export.xlsx"})
 
 
 @router.post("/admin/campaigns/{cid}/brief")

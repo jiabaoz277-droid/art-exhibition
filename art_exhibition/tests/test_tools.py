@@ -59,6 +59,7 @@ def test_overview(seeded):
     assert o["school_distribution"]["中央美院"] == 2
     assert o["medium_distribution"]["油画"] == 1
     assert o["medium_distribution"]["国画"] == 1
+    assert "resume_path" in o["artist_list"][0]
 
 
 def test_list_works_filter(seeded):

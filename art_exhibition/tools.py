@@ -59,6 +59,7 @@ def campaign_overview(campaign_id: int) -> dict:
             "wechat": a.wechat,
             "work_count": len(a.works),
             "status": a.status,
+            "resume_path": a.resume_path,
         } for a in applicants]
 
         return {

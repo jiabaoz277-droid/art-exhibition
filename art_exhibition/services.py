@@ -7,6 +7,10 @@ import uuid
 import zipfile
 from pathlib import Path
 
+import openpyxl
+from openpyxl.drawing.image import Image as XLImage
+from openpyxl.utils import get_column_letter
+
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -231,6 +235,76 @@ def export_zip(campaign_id: int, medium: str | None = None, school: str | None =
         for arc, full in files:
             zf.write(full, arc)
     return zip_buf.getvalue()
+
+
+EXPORT_COLUMNS = [
+    ("name", "姓名"), ("phone", "电话"), ("email", "邮箱"), ("wechat", "微信"),
+    ("title", "作品名"), ("dimensions", "尺寸"), ("medium", "画种"), ("school", "毕业院校"),
+    ("price", "价格"), ("image", "照片"), ("resume", "简历"), ("status", "投稿状态"),
+]
+
+
+def export_xlsx(campaign_id: int, columns: list | None = None, medium: str | None = None,
+                school: str | None = None, has_resume: str | None = None) -> bytes:
+    """导出 Excel：图片内嵌到单元格，列可筛选。"""
+    col_map = dict(EXPORT_COLUMNS)
+    selected = [c for c in (columns or []) if c in col_map] or [c for c, _ in EXPORT_COLUMNS]
+
+    with SessionLocal() as db:
+        if not db.get(Campaign, campaign_id):
+            raise ValueError("活动不存在")
+        applicants = db.query(Applicant).filter(Applicant.campaign_id == campaign_id).all()
+        if has_resume == "yes":
+            applicants = [a for a in applicants if a.resume_path]
+        elif has_resume == "no":
+            applicants = [a for a in applicants if not a.resume_path]
+
+        rows: list = []
+        for a in applicants:
+            works = a.works
+            if medium:
+                works = [w for w in works if w.medium == medium]
+            if school:
+                works = [w for w in works if w.school == school]
+            if not works:
+                rows.append((a, None))
+            for w in works:
+                rows.append((a, w))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "投稿明细"
+    ws.append([col_map[c] for c in selected])
+
+    image_col_idx = selected.index("image") + 1 if "image" in selected else None
+    for a, w in rows:
+        values = {
+            "name": a.name, "phone": a.phone, "email": a.email, "wechat": a.wechat,
+            "title": w.title if w else "", "dimensions": w.dimensions if w else "",
+            "medium": w.medium if w else "", "school": w.school if w else "",
+            "price": w.price if w else "", "image": "",
+            "resume": Path(a.resume_path).name if a.resume_path else "",
+            "status": a.status,
+        }
+        ws.append([values[c] for c in selected])
+        if image_col_idx and w and w.image_path:
+            ip = settings.upload_dir / w.image_path
+            if ip.exists():
+                r = ws.max_row
+                img = XLImage(str(ip))
+                img.width = 120
+                img.height = 90
+                ws.add_image(img, f"{get_column_letter(image_col_idx)}{r}")
+                ws.row_dimensions[r].height = 70
+
+    for idx, key in enumerate(selected, 1):
+        letter = get_column_letter(idx)
+        widths = {"image": 18, "email": 22, "title": 16, "school": 16}
+        ws.column_dimensions[letter].width = widths.get(key, 12)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 def make_brief(campaign_id: int) -> dict:

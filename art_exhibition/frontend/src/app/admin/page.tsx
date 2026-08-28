@@ -10,6 +10,12 @@ import { Spinner } from "@/components/ui/Spinner";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import type { Campaign, Overview, WorkRow } from "@/lib/types";
 
+const ALL_COLS: [string, string][] = [
+  ["name", "姓名"], ["phone", "电话"], ["email", "邮箱"], ["wechat", "微信"],
+  ["title", "作品名"], ["dimensions", "尺寸"], ["medium", "画种"], ["school", "毕业院校"],
+  ["price", "价格"], ["image", "照片"], ["resume", "简历"], ["status", "投稿状态"],
+];
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [adminKey, setAdminKey] = useState("");
@@ -34,6 +40,8 @@ export default function AdminPage() {
   const [fMedium, setFMedium] = useState("");
   const [fSchool, setFSchool] = useState("");
   const [fResume, setFResume] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportCols, setExportCols] = useState<string[]>(ALL_COLS.map(([k]) => k));
   const [brief, setBrief] = useState("");
   const [briefBusy, setBriefBusy] = useState(false);
   const [question, setQuestion] = useState("");
@@ -150,6 +158,20 @@ export default function AdminPage() {
     if (fSchool.trim()) q.set("school", fSchool.trim());
     if (fResume) q.set("has_resume", fResume);
     window.open(`/api/v1/admin/campaigns/${selected.id}/export.zip?${q.toString()}`, "_blank");
+  }
+
+  function exportExcel() {
+    if (!selected || exportCols.length === 0) return;
+    const q = new URLSearchParams();
+    q.set("columns", exportCols.join(","));
+    if (fMedium.trim()) q.set("medium", fMedium.trim());
+    if (fSchool.trim()) q.set("school", fSchool.trim());
+    if (fResume) q.set("has_resume", fResume);
+    window.open(`/api/v1/admin/campaigns/${selected.id}/export.xlsx?${q.toString()}`, "_blank");
+  }
+
+  function toggleCol(key: string, on: boolean) {
+    setExportCols((prev) => (on ? [...prev, key] : prev.filter((k) => k !== key)));
   }
 
   async function genBrief() {
@@ -314,6 +336,44 @@ export default function AdminPage() {
           </Card>
 
           <Card>
+            <h2 className="mb-3 text-base font-semibold">艺术家与简历</h2>
+            {overview && overview.artist_list.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-line text-left text-xs text-muted">
+                      <th className="py-2 pr-3 font-medium">姓名</th>
+                      <th className="py-2 pr-3 font-medium">电话</th>
+                      <th className="py-2 pr-3 font-medium">邮箱</th>
+                      <th className="py-2 pr-3 font-medium">微信</th>
+                      <th className="py-2 pr-3 font-medium">作品数</th>
+                      <th className="py-2 font-medium">简历</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overview.artist_list.map((a) => (
+                      <tr key={a.name + a.phone} className="border-b border-line/60">
+                        <td className="py-2 pr-3">{a.name}</td>
+                        <td className="py-2 pr-3">{a.phone}</td>
+                        <td className="py-2 pr-3">{a.email || "—"}</td>
+                        <td className="py-2 pr-3">{a.wechat || "—"}</td>
+                        <td className="py-2 pr-3">{a.work_count}</td>
+                        <td className="py-2">
+                          {a.resume_path ? (
+                            <a className="text-primary hover:underline" href={`/files/${a.resume_path}`} target="_blank" rel="noreferrer">查看</a>
+                          ) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted">暂无艺术家投稿。</p>
+            )}
+          </Card>
+
+          <Card>
             <div className="mb-3 flex flex-wrap items-end gap-2">
               <div className="flex-1">
                 <Field label="按画种筛选">
@@ -339,8 +399,30 @@ export default function AdminPage() {
                 </Field>
               </div>
               <Button variant="ghost" onClick={() => loadWorks(selected.id)}>筛选</Button>
-              <Button variant="ghost" onClick={exportZip}>导出 CSV+图片</Button>
+              <Button variant="ghost" onClick={() => setExportOpen((v) => !v)}>导出</Button>
             </div>
+
+            {exportOpen && (
+              <div className="mb-3 rounded-xl border border-line bg-line/20 p-4">
+                <p className="mb-2 text-sm font-medium">选择要导出的列：</p>
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {ALL_COLS.map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={exportCols.includes(key)}
+                        onChange={(e) => toggleCol(key, e.target.checked)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={exportExcel} disabled={exportCols.length === 0}>导出 Excel（图片内嵌）</Button>
+                  <Button variant="ghost" onClick={exportZip}>下载原件 ZIP</Button>
+                </div>
+              </div>
+            )}
 
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-sm">

@@ -43,6 +43,7 @@ export type Artist = {
   wechat: string;
   work_count: number;
   status: string;
+  resume_path: string;
 };
 
 export type Overview = {
