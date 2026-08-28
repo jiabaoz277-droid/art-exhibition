@@ -72,13 +72,18 @@ def campaign_overview(campaign_id: int) -> dict:
         }
 
 
-def list_works(campaign_id: int, medium: str | None = None, school: str | None = None) -> list:
+def list_works(campaign_id: int, medium: str | None = None, school: str | None = None,
+               has_resume: str | None = None) -> list:
     with SessionLocal() as db:
         q = db.query(Work).join(Applicant).filter(Applicant.campaign_id == campaign_id)
         if medium:
             q = q.filter(Work.medium == medium)
         if school:
             q = q.filter(Work.school == school)
+        if has_resume == "yes":
+            q = q.filter(Applicant.resume_path != "")
+        elif has_resume == "no":
+            q = q.filter(Applicant.resume_path == "")
         rows = q.order_by(Work.id).all()
         return [{
             "work_id": w.id,
@@ -88,7 +93,10 @@ def list_works(campaign_id: int, medium: str | None = None, school: str | None =
             "school": w.school,
             "price": w.price,
             "image_path": w.image_path,
+            "resume_path": w.applicant.resume_path,
             "applicant_id": w.applicant.id,
             "applicant_name": w.applicant.name,
             "applicant_phone": w.applicant.phone,
+            "applicant_email": w.applicant.email,
+            "applicant_wechat": w.applicant.wechat,
         } for w in rows]

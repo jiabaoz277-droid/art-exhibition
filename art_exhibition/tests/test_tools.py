@@ -3,13 +3,15 @@ import secrets
 
 import pytest
 
-from db import SessionLocal
+from db import SessionLocal, Base, engine
 from models import Campaign, Applicant, Work
 from tools import run_sql, campaign_overview, list_works
 
 
 @pytest.fixture()
 def seeded():
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
     with SessionLocal() as db:
         c = Campaign(title="t", link_token=secrets.token_urlsafe(8), image_formats="jpg,png", max_image_mb=10)
         db.add(c)
@@ -63,3 +65,9 @@ def test_list_works_filter(seeded):
     assert len(list_works(seeded)) == 2
     assert len(list_works(seeded, medium="油画")) == 1
     assert len(list_works(seeded, school="不存在")) == 0
+
+
+def test_list_works_has_resume(seeded):
+    # seeded 中的申请人未上传简历
+    assert len(list_works(seeded, has_resume="no")) == 2
+    assert len(list_works(seeded, has_resume="yes")) == 0

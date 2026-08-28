@@ -28,9 +28,12 @@ export type WorkRow = {
   school: string;
   price: string;
   image_path: string;
+  resume_path: string;
   applicant_id: number;
   applicant_name: string;
   applicant_phone: string;
+  applicant_email: string;
+  applicant_wechat: string;
 };
 
 export type Artist = {

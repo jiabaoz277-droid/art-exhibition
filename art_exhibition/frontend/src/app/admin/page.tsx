@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [worksLoading, setWorksLoading] = useState(false);
   const [fMedium, setFMedium] = useState("");
   const [fSchool, setFSchool] = useState("");
+  const [fResume, setFResume] = useState("");
   const [brief, setBrief] = useState("");
   const [briefBusy, setBriefBusy] = useState(false);
   const [question, setQuestion] = useState("");
@@ -134,7 +135,7 @@ export default function AdminPage() {
   async function loadWorks(id: number) {
     setWorksLoading(true);
     try {
-      setWorks(await api.works(id, fMedium.trim() || undefined, fSchool.trim() || undefined));
+      setWorks(await api.works(id, fMedium.trim() || undefined, fSchool.trim() || undefined, fResume || undefined));
     } catch (e) {
       setPanelError(errorMessage(e));
     } finally {
@@ -142,12 +143,13 @@ export default function AdminPage() {
     }
   }
 
-  function exportCsv() {
+  function exportZip() {
     if (!selected) return;
     const q = new URLSearchParams();
     if (fMedium.trim()) q.set("medium", fMedium.trim());
     if (fSchool.trim()) q.set("school", fSchool.trim());
-    window.open(`/api/v1/admin/campaigns/${selected.id}/export.csv?${q.toString()}`, "_blank");
+    if (fResume) q.set("has_resume", fResume);
+    window.open(`/api/v1/admin/campaigns/${selected.id}/export.zip?${q.toString()}`, "_blank");
   }
 
   async function genBrief() {
@@ -323,12 +325,25 @@ export default function AdminPage() {
                   <Input value={fSchool} onChange={(e) => setFSchool(e.target.value)} placeholder="如：中央美术学院" />
                 </Field>
               </div>
+              <div className="flex-1">
+                <Field label="简历">
+                  <select
+                    value={fResume}
+                    onChange={(e) => setFResume(e.target.value)}
+                    className="w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+                  >
+                    <option value="">全部</option>
+                    <option value="yes">有简历</option>
+                    <option value="no">无简历</option>
+                  </select>
+                </Field>
+              </div>
               <Button variant="ghost" onClick={() => loadWorks(selected.id)}>筛选</Button>
-              <Button variant="ghost" onClick={exportCsv}>导出 CSV</Button>
+              <Button variant="ghost" onClick={exportZip}>导出 CSV+图片</Button>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-sm">
+              <table className="w-full min-w-[760px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-line text-left text-xs text-muted">
                     <th className="py-2 pr-3 font-medium">作者</th>
@@ -337,17 +352,18 @@ export default function AdminPage() {
                     <th className="py-2 pr-3 font-medium">画种</th>
                     <th className="py-2 pr-3 font-medium">院校</th>
                     <th className="py-2 pr-3 font-medium">价格</th>
-                    <th className="py-2 font-medium">照片</th>
+                    <th className="py-2 pr-3 font-medium">照片</th>
+                    <th className="py-2 font-medium">简历</th>
                   </tr>
                 </thead>
                 <tbody>
                   {worksLoading ? (
                     <tr>
-                      <td colSpan={7} className="py-4 text-muted">加载中…</td>
+                      <td colSpan={8} className="py-4 text-muted">加载中…</td>
                     </tr>
                   ) : works.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-4 text-muted">暂无作品</td>
+                      <td colSpan={8} className="py-4 text-muted">暂无作品</td>
                     </tr>
                   ) : (
                     works.map((w) => (
@@ -364,6 +380,13 @@ export default function AdminPage() {
                         <td className="py-2">
                           {w.image_path ? (
                             <a className="text-primary hover:underline" href={`/files/${w.image_path}`} target="_blank" rel="noreferrer">
+                              查看
+                            </a>
+                          ) : "—"}
+                        </td>
+                        <td className="py-2">
+                          {w.resume_path ? (
+                            <a className="text-primary hover:underline" href={`/files/${w.resume_path}`} target="_blank" rel="noreferrer">
                               查看
                             </a>
                           ) : "—"}

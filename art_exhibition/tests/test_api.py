@@ -98,3 +98,24 @@ def test_run_sql_endpoint_readonly(client):
     assert r.status_code == 200 and r.json()["row_count"] == 1
     r2 = client.post("/api/v1/admin/run_sql", json={"sql": "DELETE FROM campaigns"})
     assert r2.status_code == 400
+
+
+def test_export_zip_contains_csv_images_resumes(client):
+    import zipfile
+    import io as _io
+
+    c = _create_campaign(client)
+    works = [{"title": "w1", "dimensions": "", "medium": "油画", "school": "A校", "price": ""}]
+    r = _submit(client, c["link_token"], works,
+                resume=("r.pdf", b"%PDF-1.4 demo", "application/pdf"),
+                image=("w.png", None, "image/png"))
+    assert r.status_code == 200, r.text
+
+    e = client.get(f"/api/v1/admin/campaigns/{c['id']}/export.zip")
+    assert e.status_code == 200
+    assert e.headers["content-type"].startswith("application/zip")
+    zf = zipfile.ZipFile(_io.BytesIO(e.content))
+    names = zf.namelist()
+    assert "export.csv" in names
+    assert any(n.startswith("images/") for n in names)
+    assert any(n.startswith("resumes/") for n in names)

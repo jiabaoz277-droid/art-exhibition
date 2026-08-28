@@ -1,8 +1,10 @@
 """业务编排：建活动、投稿、文件落盘、导出、简报、智能问答。"""
+import csv
 import io
 import json
 import secrets
 import uuid
+import zipfile
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
@@ -179,6 +181,56 @@ def deterministic_brief(overview: dict) -> str:
         "、".join(f"{k} {v}件" for k, v in overview["medium_distribution"].items())
         if overview["medium_distribution"] else "暂无"))
     return "\n".join(lines)
+
+
+def export_zip(campaign_id: int, medium: str | None = None, school: str | None = None) -> bytes:
+    """导出 ZIP：export.csv + images/ + resumes/，图片与简历随表格一起导出。"""
+    with SessionLocal() as db:
+        if not db.get(Campaign, campaign_id):
+            raise ValueError("活动不存在")
+        applicants = db.query(Applicant).filter(Applicant.campaign_id == campaign_id).all()
+
+        csv_buf = io.StringIO()
+        writer = csv.writer(csv_buf)
+        writer.writerow(["姓名", "电话", "邮箱", "微信", "作品名", "尺寸", "画种", "毕业院校",
+                         "价格", "照片文件", "简历文件", "投稿状态"])
+        files: list = []
+
+        for a in applicants:
+            works = a.works
+            if medium:
+                works = [w for w in works if w.medium == medium]
+            if school:
+                works = [w for w in works if w.school == school]
+
+            resume_arc = ""
+            if a.resume_path:
+                rp = settings.upload_dir / a.resume_path
+                if rp.exists():
+                    resume_arc = f"resumes/{a.id}_{Path(a.resume_path).name}"
+                    files.append((resume_arc, rp))
+
+            if not works:
+                writer.writerow([a.name, a.phone, a.email, a.wechat, "", "", "", "", "",
+                                 "", resume_arc, a.status])
+            for w in works:
+                img_arc = ""
+                if w.image_path:
+                    ip = settings.upload_dir / w.image_path
+                    if ip.exists():
+                        img_arc = f"images/{w.id}_{Path(w.image_path).name}"
+                        files.append((img_arc, ip))
+                writer.writerow([a.name, a.phone, a.email, a.wechat, w.title, w.dimensions,
+                                 w.medium, w.school, w.price, img_arc, resume_arc, a.status])
+
+        csv_bytes = csv_buf.getvalue().encode("utf-8-sig")
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("export.csv", csv_bytes)
+        for arc, full in files:
+            zf.write(full, arc)
+    return zip_buf.getvalue()
 
 
 def make_brief(campaign_id: int) -> dict:

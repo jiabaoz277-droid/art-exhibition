@@ -15,7 +15,7 @@ from db import get_db
 from models import Campaign
 from schemas import CampaignCreate, CampaignOut, LoginRequest, SQLQuery, QueryRequest
 from services import (create_campaign, submit_submission, build_overview, export_rows,
-                      make_brief, answer_question)
+                      export_zip, make_brief, answer_question)
 from tools import run_sql as run_sql_tool, list_works as list_works_tool
 
 router = APIRouter()
@@ -107,8 +107,8 @@ def admin_overview(cid: int, _: bool = Depends(require_admin)):
 
 @router.get("/admin/campaigns/{cid}/works")
 def admin_works(cid: int, medium: Optional[str] = None, school: Optional[str] = None,
-                _: bool = Depends(require_admin)):
-    return _run(list_works_tool, cid, medium=medium, school=school)
+                has_resume: Optional[str] = None, _: bool = Depends(require_admin)):
+    return _run(list_works_tool, cid, medium=medium, school=school, has_resume=has_resume)
 
 
 @router.get("/admin/campaigns/{cid}/export.csv")
@@ -122,6 +122,14 @@ def admin_export(cid: int, medium: Optional[str] = None, school: Optional[str] =
     data = out.getvalue().encode("utf-8-sig")
     return StreamingResponse(io.BytesIO(data), media_type="text/csv; charset=utf-8",
                              headers={"Content-Disposition": "attachment; filename=export.csv"})
+
+
+@router.get("/admin/campaigns/{cid}/export.zip")
+def admin_export_zip(cid: int, medium: Optional[str] = None, school: Optional[str] = None,
+                     _: bool = Depends(require_admin)):
+    data = _run(export_zip, cid, medium=medium, school=school)
+    return Response(content=data, media_type="application/zip",
+                    headers={"Content-Disposition": "attachment; filename=export.zip"})
 
 
 @router.post("/admin/campaigns/{cid}/brief")

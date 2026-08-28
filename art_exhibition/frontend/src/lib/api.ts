@@ -75,10 +75,11 @@ export const api = {
 
   overview: (id: number) => request<Overview>(`/api/v1/admin/campaigns/${id}/overview`),
 
-  works: (id: number, medium?: string, school?: string) => {
+  works: (id: number, medium?: string, school?: string, hasResume?: string) => {
     const q = new URLSearchParams();
     if (medium) q.set("medium", medium);
     if (school) q.set("school", school);
+    if (hasResume) q.set("has_resume", hasResume);
     return request<WorkRow[]>(`/api/v1/admin/campaigns/${id}/works?${q.toString()}`);
   },
 
