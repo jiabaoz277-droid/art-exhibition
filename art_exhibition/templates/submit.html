@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ campaign.title }} · 投稿</title>
+<style>
+  :root { --brand:#3b5bfd; --ok:#16a34a; --warn:#d97706; --err:#dc2626; --bg:#f5f6fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:#1f2937; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; }
+  header h1 { font-size: 22px; margin: 0 0 6px; }
+  header p { color:#6b7280; margin: 0; font-size: 14px; line-height: 1.6; }
+  .steps { display:flex; gap:8px; margin: 20px 0; flex-wrap: wrap; }
+  .step { flex:1; min-width:90px; text-align:center; padding:10px 6px; background:#fff; border-radius:10px; font-size:13px; color:#9ca3af; border:1px solid #e5e7eb; }
+  .step.on { color:#fff; background:var(--brand); border-color:var(--brand); font-weight:600; }
+  .card { background:#fff; border-radius:14px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:16px; }
+  label { display:block; font-size:14px; margin:14px 0 6px; color:#374151; font-weight:500; }
+  input[type=text], input[type=number] { width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; }
+  input[type=file] { font-size:14px; }
+  .hint { font-size:12px; color:#9ca3af; margin-top:4px; }
+  .btns { display:flex; justify-content:space-between; gap:12px; margin-top:20px; }
+  button { padding:10px 18px; border:none; border-radius:8px; font-size:15px; cursor:pointer; }
+  .btn-primary { background:var(--brand); color:#fff; }
+  .btn-ghost { background:#e5e7eb; color:#374151; }
+  .work-card { border:1px solid #e5e7eb; border-radius:10px; padding:14px; margin-top:14px; }
+  .work-card h4 { margin:0 0 4px; font-size:15px; }
+  .remove { color:var(--err); background:none; padding:0; font-size:13px; }
+  .report { border-left:4px solid var(--brand); }
+  .report h3 { margin:0 0 12px; }
+  .missing li { color:var(--err); }
+  .format li { color:var(--warn); }
+  .notes { background:#f9fafb; padding:10px; border-radius:8px; font-size:14px; }
+  .ok-badge { color:var(--ok); font-weight:600; }
+  .hidden { display:none; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>{{ campaign.title }}</h1>
+    <p>{{ campaign.description or '' }}</p>
+    <p class="hint">可上传图片格式：{{ campaign.image_formats }}，单张 ≤ {{ campaign.max_image_mb }}MB</p>
+  </header>
+
+  <div class="steps">
+    <div class="step on" id="s1">① 个人资料</div>
+    <div class="step" id="s2">② 上传简历</div>
+    <div class="step" id="s3">③ 作品资料</div>
+    <div class="step" id="s4">④ 确认提交</div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="card" id="step1">
+    <label>姓名 *</label>
+    <input type="text" id="name" placeholder="真实姓名">
+    <label>电话 *</label>
+    <input type="text" id="phone" placeholder="手机号">
+    <label>邮箱</label>
+    <input type="text" id="email" placeholder="example@mail.com">
+    <label>微信</label>
+    <input type="text" id="wechat" placeholder="微信号">
+    <p class="hint">邮箱与微信至少填写一项。</p>
+    <div class="btns"><span></span><button class="btn-primary" onclick="go(2)">下一步</button></div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="card hidden" id="step2">
+    <label>个人简历（PDF / DOCX）*</label>
+    <input type="file" id="resume" accept=".pdf,.docx">
+    <p class="hint">仅支持 .pdf / .docx，≤ 20MB。</p>
+    <div class="btns"><button class="btn-ghost" onclick="go(1)">上一步</button><button class="btn-primary" onclick="go(3)">下一步</button></div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="card hidden" id="step3">
+    <div id="works"></div>
+    <button class="btn-ghost" style="width:100%;margin-top:14px" onclick="addWork()">+ 添加作品（可多件）</button>
+    <div class="btns"><button class="btn-ghost" onclick="go(2)">上一步</button><button class="btn-primary" onclick="go(4)">下一步</button></div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="card hidden" id="step4">
+    <h3>确认提交</h3>
+    <div id="summary"></div>
+    <div class="btns"><button class="btn-ghost" onclick="go(3)">上一步</button><button class="btn-primary" id="submitBtn" onclick="submitAll()">确认提交</button></div>
+  </div>
+
+  <!-- 核验报告 -->
+  <div class="card report hidden" id="report"></div>
+</div>
+
+<script>
+const token = "{{ token }}";
+const works = [];
+
+function go(n) {
+  for (let i=1;i<=4;i++) document.getElementById("step"+i).classList.add("hidden");
+  document.getElementById("step"+n).classList.remove("hidden");
+  for (let i=1;i<=4;i++) document.getElementById("s"+i).classList.toggle("on", i===n);
+  if (n===4) renderSummary();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function addWork(data) {
+  const w = data || {title:"",dimensions:"",medium:"",school:"",price:"",image:null};
+  works.push(w);
+  renderWorks();
+}
+
+function renderWorks() {
+  const el = document.getElementById("works");
+  el.innerHTML = works.map((w,i)=>`
+    <div class="work-card">
+      <h4>作品 ${i+1} <button class="remove" onclick="removeWork(${i})">删除</button></h4>
+      <label>作品名 *</label><input type="text" data-i="${i}" data-f="title" value="${esc(w.title)}" oninput="setW(${i},'title',this.value)">
+      <div class="grid2">
+        <div><label>尺寸 *</label><input type="text" data-f="dimensions" value="${esc(w.dimensions)}" oninput="setW(${i},'dimensions',this.value)"></div>
+        <div><label>画种 *</label><input type="text" data-f="medium" value="${esc(w.medium)}" oninput="setW(${i},'medium',this.value)"></div>
+        <div><label>毕业院校 *</label><input type="text" data-f="school" value="${esc(w.school)}" oninput="setW(${i},'school',this.value)"></div>
+        <div><label>价格</label><input type="text" data-f="price" value="${esc(w.price)}" oninput="setW(${i},'price',this.value)"></div>
+      </div>
+      <label>作品照片 *</label><input type="file" accept="image/*" onchange="setImage(${i},this.files[0])">
+    </div>`).join("");
+}
+
+function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function setW(i,f,v){ works[i][f]=v; }
+function setImage(i,f){ works[i].image=f; }
+function removeWork(i){ works.splice(i,1); renderWorks(); }
+
+function renderSummary() {
+  const el = document.getElementById("summary");
+  const lines = [
+    `<p><b>姓名：</b>${esc(document.getElementById("name").value||"未填")}</p>`,
+    `<p><b>电话：</b>${esc(document.getElementById("phone").value||"未填")}</p>`,
+    `<p><b>邮箱：</b>${esc(document.getElementById("email").value||"未填")}　<b>微信：</b>${esc(document.getElementById("wechat").value||"未填")}</p>`,
+    `<p><b>简历：</b>${document.getElementById("resume").files[0] ? document.getElementById("resume").files[0].name : "未上传"}</p>`,
+    `<p><b>作品数：</b>${works.length} 件</p>`,
+  ];
+  el.innerHTML = lines.join("");
+}
+
+async function submitAll() {
+  const btn = document.getElementById("submitBtn");
+  btn.disabled = true; btn.textContent = "提交中…";
+  const fd = new FormData();
+  fd.append("name", document.getElementById("name").value.trim());
+  fd.append("phone", document.getElementById("phone").value.trim());
+  fd.append("email", document.getElementById("email").value.trim());
+  fd.append("wechat", document.getElementById("wechat").value.trim());
+  const rf = document.getElementById("resume").files[0];
+  if (rf) fd.append("resume", rf);
+  const meta = works.map(w=>({title:w.title,dimensions:w.dimensions,medium:w.medium,school:w.school,price:w.price}));
+  fd.append("works_json", JSON.stringify(meta));
+  works.forEach(w=>{ if (w.image) fd.append("images", w.image); });
+
+  try {
+    const resp = await fetch(`/api/v1/campaigns/${token}/submissions`, {method:"POST", body:fd});
+    const body = await resp.json();
+    if (!resp.ok) { alert(body.detail || "提交失败"); return; }
+    document.getElementById("step4").classList.add("hidden");
+    renderReport(body.report);
+  } catch(e) {
+    alert("提交失败：" + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "确认提交";
+  }
+}
+
+function renderReport(r) {
+  const el = document.getElementById("report");
+  el.classList.remove("hidden");
+  const missing = (r.missing||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const fmt = (r.format_issues||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const pass = (!r.missing || r.missing.length===0) && (!r.format_issues || r.format_issues.length===0);
+  el.innerHTML = `
+    <h3>核验报告 ${pass ? '<span class="ok-badge">✓ 材料齐全</span>' : ''}</h3>
+    ${missing ? `<p><b>缺失项：</b></p><ul class="missing">${missing}</ul>` : ""}
+    ${fmt ? `<p><b>格式问题：</b></p><ul class="format">${fmt}</ul>` : ""}
+    <p><b>说明：</b></p><div class="notes">${esc(r.notes||"无")}</div>`;
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+addWork();
+</script>
+</body>
+</html>

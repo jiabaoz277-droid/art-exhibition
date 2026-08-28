@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>投稿助手 · 后台</title>
+<style>
+  :root { --brand:#3b5bfd; --bg:#f5f6fa; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:#1f2937; }
+  .wrap { max-width:1100px; margin:0 auto; padding:24px 16px 60px; }
+  header { display:flex; justify-content:space-between; align-items:center; }
+  h1 { font-size:20px; margin:0; } h2 { font-size:17px; margin:20px 0 10px; }
+  .card { background:#fff; border-radius:14px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:16px; }
+  label { display:block; font-size:13px; margin:10px 0 4px; color:#374151; }
+  input, textarea { width:100%; padding:9px 11px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; font-family:inherit; }
+  button { padding:9px 16px; border:none; border-radius:8px; cursor:pointer; font-size:14px; }
+  .btn-primary { background:var(--brand); color:#fff; }
+  .btn-ghost { background:#e5e7eb; color:#374151; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { border-bottom:1px solid #eee; padding:8px 6px; text-align:left; vertical-align:top; }
+  th { color:#6b7280; font-weight:500; }
+  .stats { display:flex; gap:12px; flex-wrap:wrap; }
+  .stat { flex:1; min-width:130px; background:#f9fafb; border-radius:10px; padding:14px; text-align:center; }
+  .stat b { font-size:22px; display:block; }
+  .stat span { font-size:12px; color:#6b7280; }
+  .camp { cursor:pointer; border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin-bottom:8px; }
+  .camp.on { border-color:var(--brand); background:#eef2ff; }
+  .camp small { color:#9ca3af; }
+  .tag { display:inline-block; background:#eef2ff; color:var(--brand); border-radius:6px; padding:2px 8px; font-size:12px; margin:0 4px 4px 0; }
+  .hidden { display:none; }
+  .filters { display:flex; gap:10px; margin-bottom:10px; }
+  .filters input { width:auto; flex:1; }
+  .brief { white-space:pre-wrap; background:#f9fafb; border-radius:8px; padding:14px; font-size:14px; }
+  .muted { color:#6b7280; font-size:13px; }
+  a { color:var(--brand); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🎨 投稿助手 · 后台</h1>
+    <button class="btn-ghost" id="logoutBtn" onclick="logout()">退出登录</button>
+  </header>
+
+  <!-- 登录 -->
+  <div class="card" id="loginBox">
+    <h2>管理员登录</h2>
+    <label>管理员密钥</label>
+    <input type="password" id="adminKey" placeholder="输入 ADMIN_KEY">
+    <br><br>
+    <button class="btn-primary" onclick="login()">登录</button>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="dash" class="hidden">
+    <div class="card">
+      <h2>创建征集活动</h2>
+      <label>活动标题 *</label><input type="text" id="cTitle" placeholder="如：2025 高校美术作品展征集">
+      <label>活动说明</label><textarea id="cDesc" rows="2"></textarea>
+      <label>截止时间（可选）</label><input type="datetime-local" id="cDeadline">
+      <label>允许图片格式（逗号分隔）</label><input type="text" id="cFormats" value="jpg,jpeg,png,webp">
+      <label>单张图片上限（MB）</label><input type="number" id="cMaxMb" value="10" min="1" step="0.5">
+      <br><br>
+      <button class="btn-primary" onclick="createCampaign()">创建并生成投递链接</button>
+    </div>
+
+    <div class="card">
+      <h2>活动列表</h2>
+      <div id="campList"></div>
+    </div>
+
+    <div class="card hidden" id="detail">
+      <h2 id="detailTitle"></h2>
+      <p class="muted" id="detailLink"></p>
+
+      <div class="stats" id="stats"></div>
+
+      <h2>作品明细</h2>
+      <div class="filters">
+        <input type="text" id="fMedium" placeholder="按画种筛选">
+        <input type="text" id="fSchool" placeholder="按院校筛选">
+        <button class="btn-ghost" onclick="loadWorks()">筛选</button>
+        <button class="btn-ghost" onclick="exportCsv()">导出 CSV</button>
+        <button class="btn-primary" onclick="genBrief()">生成工作简报</button>
+      </div>
+      <table id="worksTable"><thead><tr><th>作者</th><th>作品名</th><th>尺寸</th><th>画种</th><th>院校</th><th>价格</th><th>照片</th></tr></thead><tbody></tbody></table>
+
+      <h2>工作简报</h2>
+      <div class="brief" id="brief">点击「生成工作简报」查看。</div>
+
+      <h2>智能问答</h2>
+      <div class="filters">
+        <input type="text" id="question" placeholder="如：本次征集有哪些学校投稿？">
+        <button class="btn-primary" onclick="ask()">提问</button>
+      </div>
+      <div class="brief" id="answer"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentCampaign = null;
+
+function login() {
+  fetch("/api/v1/admin/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({admin_key:document.getElementById("adminKey").value})})
+    .then(async r => { if(!r.ok){ alert((await r.json()).detail||"登录失败"); return; } enter(); })
+    .catch(e=>alert("登录失败："+e.message));
+}
+function logout() {
+  fetch("/api/v1/admin/logout", {method:"POST"}).then(()=>location.reload());
+}
+function enter() {
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("dash").classList.remove("hidden");
+  loadCamps();
+}
+async function loadCamps() {
+  const r = await fetch("/api/v1/admin/campaigns");
+  if (r.status === 401) { location.reload(); return; }
+  const camps = await r.json();
+  document.getElementById("campList").innerHTML = camps.map(c=>`
+    <div class="camp ${currentCampaign&&currentCampaign.id===c.id?'on':''}" onclick="selectCamp(${c.id})">
+      <b>${esc(c.title)}</b> <small>#${c.id}</small><br>
+      <small>链接：/s/${c.link_token} · 格式 ${c.image_formats} · ≤${c.max_image_mb}MB</small>
+    </div>`).join("") || '<p class="muted">暂无活动，请先创建。</p>';
+}
+async function createCampaign() {
+  const body = {
+    title: document.getElementById("cTitle").value.trim(),
+    description: document.getElementById("cDesc").value.trim(),
+    deadline: document.getElementById("cDeadline").value ? document.getElementById("cDeadline").value : null,
+    image_formats: document.getElementById("cFormats").value.trim() || "jpg,jpeg,png,webp",
+    max_image_mb: parseFloat(document.getElementById("cMaxMb").value) || 10,
+  };
+  if (!body.title) { alert("请填写活动标题"); return; }
+  const r = await fetch("/api/v1/admin/campaigns", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if (!r.ok) { alert((await r.json()).detail||"创建失败"); return; }
+  document.getElementById("cTitle").value = ""; document.getElementById("cDesc").value = "";
+  loadCamps();
+}
+async function selectCamp(id) {
+  currentCampaign = { id };
+  const r = await fetch("/api/v1/admin/campaigns");
+  const camps = await r.json();
+  currentCampaign = camps.find(c=>c.id===id);
+  document.getElementById("detail").classList.remove("hidden");
+  document.getElementById("detailTitle").textContent = currentCampaign.title;
+  document.getElementById("detailLink").innerHTML = `投递链接：<a href="/s/${currentCampaign.link_token}" target="_blank">/s/${currentCampaign.link_token}</a>`;
+  loadCamps(); loadOverview(); loadWorks();
+}
+async function loadOverview() {
+  const r = await fetch(`/api/v1/admin/campaigns/${currentCampaign.id}/overview`);
+  const o = await r.json();
+  const schools = Object.entries(o.school_distribution||{}).map(([k,v])=>`<span class="tag">${esc(k)} ${v}</span>`).join("");
+  const mediums = Object.entries(o.medium_distribution||{}).map(([k,v])=>`<span class="tag">${esc(k)} ${v}</span>`).join("");
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><b>${o.applicant_count}</b><span>投稿艺术家</span></div>
+    <div class="stat"><b>${o.work_count}</b><span>作品总数</span></div>
+    <div class="stat" style="min-width:200px"><b style="font-size:14px">学校分布</b><span>${schools||"暂无"}</span></div>
+    <div class="stat" style="min-width:200px"><b style="font-size:14px">画种分布</b><span>${mediums||"暂无"}</span></div>`;
+}
+async function loadWorks() {
+  const medium = document.getElementById("fMedium").value.trim();
+  const school = document.getElementById("fSchool").value.trim();
+  const q = new URLSearchParams();
+  if (medium) q.set("medium", medium);
+  if (school) q.set("school", school);
+  const r = await fetch(`/api/v1/admin/campaigns/${currentCampaign.id}/works?${q}`);
+  const rows = await r.json();
+  document.querySelector("#worksTable tbody").innerHTML = rows.map(w=>`
+    <tr><td>${esc(w.applicant_name)}<br><small class="muted">${esc(w.applicant_phone)}</small></td>
+    <td>${esc(w.title)}</td><td>${esc(w.dimensions)}</td><td>${esc(w.medium)}</td>
+    <td>${esc(w.school)}</td><td>${esc(w.price)}</td>
+    <td>${w.image_path?`<a href="/files/${esc(w.image_path)}" target="_blank">查看</a>`:"—"}</td></tr>`).join("") || '<tr><td colspan="7" class="muted">暂无作品</td></tr>';
+}
+function exportCsv() {
+  const medium = document.getElementById("fMedium").value.trim();
+  const school = document.getElementById("fSchool").value.trim();
+  const q = new URLSearchParams();
+  if (medium) q.set("medium", medium);
+  if (school) q.set("school", school);
+  window.open(`/api/v1/admin/campaigns/${currentCampaign.id}/export.csv?${q}`, "_blank");
+}
+async function genBrief() {
+  const r = await fetch(`/api/v1/admin/campaigns/${currentCampaign.id}/brief`, {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"});
+  const b = await r.json();
+  document.getElementById("brief").textContent = b.brief;
+}
+async function ask() {
+  const q = document.getElementById("question").value.trim();
+  if (!q) { alert("请输入问题"); return; }
+  const r = await fetch(`/api/v1/admin/campaigns/${currentCampaign.id}/query`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({question:q})});
+  const b = await r.json();
+  document.getElementById("answer").textContent = b.answer || JSON.stringify(b);
+}
+function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 密钥与数据
+.env
+*.db
+*.sqlite
+art_exhibition/data/
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
