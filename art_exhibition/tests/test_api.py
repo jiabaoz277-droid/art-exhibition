@@ -121,6 +121,35 @@ def test_export_zip_contains_csv_images_resumes(client):
     assert any(n.startswith("resumes/") for n in names)
 
 
+def test_image_moderation_rejects_sensitive(client, monkeypatch):
+    import config
+    from schemas import ModerationResult
+
+    monkeypatch.setattr(config.settings, "moderation_enabled", True, raising=False)
+    monkeypatch.setattr("services.moderate_image",
+                        lambda data: ModerationResult(safe=False, category="色情裸露", reason="含露骨裸露内容"))
+
+    c = _create_campaign(client)
+    works = [{"title": "w", "dimensions": "", "medium": "", "school": "", "price": ""}]
+    r = _submit(client, c["link_token"], works, image=("w.png", None, "image/png"))
+    assert r.status_code == 400
+    assert "内容审核" in r.json()["detail"]
+
+
+def test_image_moderation_passes_safe(client, monkeypatch):
+    import config
+    from schemas import ModerationResult
+
+    monkeypatch.setattr(config.settings, "moderation_enabled", True, raising=False)
+    monkeypatch.setattr("services.moderate_image",
+                        lambda data: ModerationResult(safe=True, category="", reason=""))
+
+    c = _create_campaign(client)
+    works = [{"title": "w", "dimensions": "", "medium": "油画", "school": "A校", "price": ""}]
+    r = _submit(client, c["link_token"], works, image=("w.png", None, "image/png"))
+    assert r.status_code == 200
+
+
 def test_export_xlsx_embeds_images_and_selects_columns(client):
     import openpyxl
     import io as _io

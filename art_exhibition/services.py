@@ -20,6 +20,7 @@ from config import settings
 from models import Campaign, Applicant, Work, CheckReport
 from schemas import CampaignCreate, CheckReportOut
 from checks import run_check
+from moderation import moderate_image
 from tools import campaign_overview, list_works as list_works_tool, run_sql as run_sql_tool
 from agent import llm_brief, plan_query, synthesize_answer
 
@@ -64,6 +65,12 @@ def persist_file(upload: UploadFile | None, allowed_exts: list, max_mb: float,
             img.verify()
         except Exception as e:  # noqa: BLE001 图片损坏 -> 记录"无法解析"，不判缺失
             parse_error = str(e)
+
+    # 内容审核：仅对图片；未配置视觉模型或审核失败时不阻断（fail-open）
+    if must_be_image and settings.moderation_enabled:
+        result = moderate_image(data)
+        if result is not None and not result.safe:
+            return None, f"照片未通过内容审核（{result.category}）：{result.reason}", None, None
 
     stored = f"{uuid.uuid4().hex}.{ext}"
     (settings.upload_dir / stored).write_bytes(data)

@@ -36,6 +36,12 @@ class QueryRequest(BaseModel):
     question: str
 
 
+class ModerationResult(BaseModel):
+    safe: bool = True
+    category: str = ""
+    reason: str = ""
+
+
 class CheckReportOut(BaseModel):
     missing: List[str] = []
     format_issues: List[str] = []

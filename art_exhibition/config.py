@@ -50,6 +50,12 @@ class Settings:
     model_api_key: str = os.getenv("MODEL_API_KEY", "")
     model_name: str = os.getenv("MODEL_NAME", "deepseek-chat")
 
+    # 图片内容审核（需视觉/多模态模型；不配 MODERATION_MODEL 则审核关闭）
+    moderation_base_url: str = os.getenv("MODERATION_BASE_URL", os.getenv("MODEL_BASE_URL", ""))
+    moderation_api_key: str = os.getenv("MODERATION_API_KEY", os.getenv("MODEL_API_KEY", ""))
+    moderation_model: str = os.getenv("MODERATION_MODEL", "")
+    moderation_enabled: bool = bool(moderation_model and moderation_api_key)
+
     # 后台管理员密钥
     admin_key: str = os.getenv("ADMIN_KEY", "change-me-admin-key")
 
