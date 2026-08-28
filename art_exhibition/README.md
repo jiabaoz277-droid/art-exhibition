@@ -66,6 +66,27 @@ npm install
 npm run dev   # http://localhost:3000（后端需已在 8000 运行）
 ```
 
+## 线上访问（火山引擎 veFaaS）
+
+- 前端（正式入口）：`https://sg6uajgp8dkcd3c1bi6i5.apigateway-cn-beijing.volceapi.com/`
+- 后端：`https://sv6454ts3sniibocequpl.apigateway-cn-beijing.volceapi.com/`（`/docs` 接口文档）
+- 后台登录密钥：见线上环境变量 `ADMIN_KEY`（不写入仓库）
+
+部署信息：网关 `report-gw`；应用 `art-exhibition-api`（后端 512MB）+ `art-exhibition-web`（前端 512MB）。
+
+重新部署：
+```bash
+# 后端
+cd art_exhibition && vefaas deploy --command "python -m uvicorn app:app --host 0.0.0.0 --port 8000" --port 8000 --memory 512 --yes
+
+# 前端（BACKEND_URL 构建时注入）
+cd frontend && BACKEND_URL=https://后端地址 vefaas deploy \
+  --buildCommand "npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public" \
+  --outputPath ".next/standalone" --command "node server.js" --port 3000 --memory 512 --yes
+```
+
+待办（上线后）：预留实例（数据不因空闲丢失）、文件上对象存储 TOS、数据库定期云备份+启动恢复。
+
 ## 目录说明
 
 | 文件 | 职责 |

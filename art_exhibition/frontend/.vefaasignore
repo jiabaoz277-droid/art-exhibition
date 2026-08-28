@@ -1,0 +1,2 @@
+# 前端产物为 .next/standalone（需保留其内的 node_modules 与 .next），故不排除这两者
+.env*

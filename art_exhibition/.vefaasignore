@@ -1,0 +1,12 @@
+# veFaaS 打包排除（密钥/环境/大文件不上传）
+.venv/
+data/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.vefaas/
+frontend/
+tests/
+docs/
+*.db
