@@ -48,6 +48,16 @@ python -m pytest -q
    - 后台「智能问答」能选工具并给出回答。
 3. 无 Key 时以上能力自动降级为确定性结果，**不以 mock 结果冒充真实验证**。
 
+## 正式前端（Next.js）
+
+正式前端在 `frontend/`（Next.js App Router + TS strict + Tailwind 4），详见 `frontend/README.md`。
+
+```bash
+cd frontend
+npm install
+npm run dev   # http://localhost:3000（后端需已在 8000 运行）
+```
+
 ## 目录说明
 
 | 文件 | 职责 |
