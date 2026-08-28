@@ -41,6 +41,14 @@ python -m pytest -q
 
 ## 真实模型冒烟（第二层，验收前必做）
 
+```bash
+cd art_exhibition
+source .venv/bin/activate
+python smoke_model.py   # 一键跑核验/简报/问答三条真实模型链路
+```
+
+或手动：
+
 1. 在 `.env` 填入真实 `MODEL_API_KEY`（DeepSeek/Qwen/GLM，OpenAI 兼容）。
 2. 启动服务后，创建活动并通过投递页完成一次真实投稿，核对：
    - 投稿提交后能返回 AI 核验报告；

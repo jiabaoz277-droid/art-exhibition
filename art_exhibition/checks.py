@@ -67,6 +67,8 @@ def run_check(applicant: dict, works: list, rules: dict) -> CheckReportOut:
                 "title": w.get("title"), "dimensions": w.get("dimensions"),
                 "medium": w.get("medium"), "school": w.get("school"),
                 "price": w.get("price"), "has_image": bool((w.get("image_path") or "").strip()),
+                "image_format": (Path(w.get("image_path") or "").suffix.lstrip(".").lower() or None),
+                "image_size_mb": w.get("image_size_mb"),
             } for w in works],
             "rules": rules,
         })

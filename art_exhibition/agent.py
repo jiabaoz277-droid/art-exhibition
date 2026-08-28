@@ -15,8 +15,9 @@ CHECK_SYSTEM = (
     "只输出一个 JSON 对象，结构必须严格为：\n"
     "{\"missing\": [\"缺失内容\"], \"format_issues\": [\"格式问题\"], \"notes\": \"总体说明(1-3句)\"}\n"
     "规则：\n"
-    "- missing：语义层面发现缺失的内容（纯字段缺失由系统确定性检查负责，可少列或留空）。\n"
-    "- format_issues：格式问题，如照片清晰度不足、简历与作品疑似不符、尺寸填写异常等。\n"
+    "- 图片格式、大小已由系统校验通过，不要重复检查格式/大小，也不要臆测缺失。\n"
+    "- missing：只列语义层面确实缺失的内容（纯字段缺失由系统负责，可留空）。\n"
+    "- format_issues：只列语义层面问题，如照片清晰度不足、简历与作品信息疑似不符等。\n"
     "- notes：总体说明，1-3 句话。\n"
     "只输出 JSON，禁止输出 JSON 以外的文字、解释或 Markdown 代码块。"
 )
@@ -29,9 +30,16 @@ BRIEF_SYSTEM = (
 
 QUERY_SYSTEM = (
     "你是数据查询规划助手。根据用户问题，从以下工具中选一个并给出参数：\n"
-    "1) overview：活动统计总览（无需参数）\n"
-    "2) list_works：作品明细筛选（可选参数 medium/school）\n"
-    "3) run_sql：只读 SQL 查询（参数 sql，仅允许 SELECT/WITH）\n"
+    "1) overview：活动统计总览（无需参数）——适用于统计/分布类问题，如投稿人数、学校分布、画种分布、艺术家名单。\n"
+    "2) list_works：作品明细筛选（可选参数 medium/school）——适用于按画种或院校查看具体作品。\n"
+    "3) run_sql：只读 SQL 查询（参数 sql，仅允许 SELECT/WITH）——用于前两个工具覆盖不了的自定义查询。\n"
+    "数据库表结构：\n"
+    "campaigns(id, title, description, deadline, image_formats, max_image_mb, link_token)\n"
+    "applicants(id, campaign_id, name, phone, email, wechat, resume_path, status)\n"
+    "works(id, applicant_id, title, dimensions, medium, school, price, image_path)\n"
+    "check_reports(id, applicant_id, missing, format_issues, notes)\n"
+    "注意：works 通过 applicant_id 关联 applicants，campaign_id 在 applicants 表上。\n"
+    "统计/分布类问题优先选 overview。\n"
     "只输出一个 JSON 对象：{\"tool\": \"overview|list_works|run_sql\", \"args\": {}}。\n"
     "禁止输出 JSON 以外的内容。"
 )
