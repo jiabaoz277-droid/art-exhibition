@@ -21,3 +21,8 @@ htmlcov/
 
 # 部署状态（veFaaS 本地绑定，机器相关）
 .vefaas/
+
+# 本地参考手册（不上传仓库）
+/AI Agent 产品上线部署手册(1).md
+/AI产品Vibe Coding通用技术栈手册(1).md
+/AI产品Vibe Coding通用前端技术栈手册(1).md
